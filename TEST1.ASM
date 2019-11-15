@@ -307,7 +307,7 @@ NOTD:
 			+ADDVECT QC, EC
 			+ADDVECT QD, ED
 
-;Value is now 0-2047, to get 0-224 we want /8 - /64
+;Value is too big /8
 			CLC					; divide by 8
 			ROR		SUM_X+1
 			ROR		SUM_X+0
@@ -327,33 +327,10 @@ NOTD:
 			ROR		SUM_Y+1
 			ROR		SUM_Y+0
 
-			LDA		SUM_X+0		; X/8 to A8 Y/8 to B8 (value is now 8 bit 0-255)
+			LDA		SUM_X+0		; X/8 to A8 Y/8 to B8 (value is now 8)
 			STA 	PSET_XU8
 			LDA		SUM_Y+0
 			STA 	PSET_YU8
-
-			CLC					; divide by another 8 to get /64
-			ROR		SUM_X+0
-			CLC
-			ROR		SUM_X+0
-			CLC
-			ROR		SUM_X+0
-			CLC
-			ROR		SUM_Y+0
-			CLC
-			ROR		SUM_Y+0
-			CLC
-			ROR		SUM_Y+0
-
-			SEC					;subtract /64 from the /8
-			LDA 	PSET_XU8
-			SBC		SUM_X+0
-			STA 	PSET_XU8
-
-			SEC
-			LDA 	PSET_YU8
-			SBC		SUM_Y+0
-			STA 	PSET_YU8	;Value is now 0-223
 
 			JSR 	PSET
 
@@ -379,13 +356,15 @@ PSET:
 			CLC
 			ROR
 			CLC
-			ADC 	#24
+			ADC 	#16
 
 			STA		A16+0		; X/2 into A16
 			LDA 	#$0
 			STA 	A16+1
 
 			LDA		PSET_YU8	; Y
+			SEC 
+			SBC 	#8
 			STA		B16+1		; Y*256 into B16
 			LDA		#$0
 			STA 	B16+0
