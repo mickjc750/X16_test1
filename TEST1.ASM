@@ -30,17 +30,19 @@
 	+reserve ~ENVELOPE, 2
 
 ;	Angles
-	+reserve ~QA, 	1
+	+reserve ~QA, 1
+	+reserve ~QB, 1
+	+reserve ~QC, 1
 
 	+reserve ~SUM_X, 2
 	+reserve ~SUM_Y, 2
 
 ;	Coordinates unsigned 8 bit from top left
-	+reserve ~PSET_XU8, 	1
-	+reserve ~PSET_YU8, 	1
+	+reserve ~PSET_XU8, 1
+	+reserve ~PSET_YU8, 1
 
 ;	Pset colour
-	+reserve ~PSET_C,	1
+	+reserve ~PSET_C, 1
 
 ;	Pset history index
 	+reserve ~PHIST, 1
@@ -67,6 +69,61 @@ SIN_TABLE:
 ;***************************************************
 ; Main program
 ;***************************************************
+
+; Add a vector to the SUM_X,SUM_Y with some envelope offset
+!macro ADDVECT .QVECT, .ENV_OFFSET {
+
+			LDX		.QVECT			; add SIN(QVECT) to SUM_X
+			LDA		SIN_TABLE,X
+			CLC
+			ADC 	SUM_X+0
+			STA  	SUM_X+0
+			LDA		#0
+			ADC 	SUM_X+1
+			STA  	SUM_X+1
+
+			LDA		.QVECT			; add SIN(QVECT+64) to SUM_Y  (64=90deg)
+			CLC
+			ADC		#64
+			TAX
+			LDA		SIN_TABLE,X
+			CLC
+			ADC 	SUM_Y+0
+			STA  	SUM_Y+0
+			LDA		#0
+			ADC 	SUM_Y+1
+			STA  	SUM_Y+1
+
+			LDA		.QVECT			; add SIN(QVECT+ENV) to SUM_X
+			CLC
+			ADC 	ENVELOPE+1
+			CLC
+			ADC		#.ENV_OFFSET
+			TAX
+			LDA		SIN_TABLE,X
+			CLC
+			ADC 	SUM_X+0
+			STA  	SUM_X+0
+			LDA		#0
+			ADC 	SUM_X+1
+			STA  	SUM_X+1
+
+			LDA		.QVECT			; add SIN(QVECT+ENV+64) to SUM_Y
+			CLC
+			ADC 	ENVELOPE+1
+			CLC
+			ADC		#64+.ENV_OFFSET
+			TAX
+			LDA		SIN_TABLE,X
+			CLC
+			ADC 	SUM_Y+0
+			STA  	SUM_Y+0
+			LDA		#0
+			ADC 	SUM_Y+1
+			STA  	SUM_Y+1
+}
+
+
 
 START:		+VREG	VERA_CTRL, $80	; Reset & default VERA
 			+VREG	DC_VIDEO, 1		; VGA mode
@@ -96,8 +153,9 @@ LOOP0:		STA		VERA_DATA0
 LOOP1:		LDA		#$00
 			STA		PHISTMID,X
 			STA		PHISTLO,X
+			LDA		#$FF
 			STA		PHISTMSK,X
-			DEX 	
+			INX 	
 			BNE 	LOOP1
 
 			LDA		#$1
@@ -118,55 +176,18 @@ MAINLOOP:	CLC						; advance envelope
 			STA 	SUM_Y+1
 
 			INC 	QA 				; inc root vector
+			LDA 	QB
+			CLC
+			ADC 	#2
+			STA 	QB
+			LDA 	QC
+			CLC
+			ADC 	#2
+			STA 	QC
 
-			LDX		QA				; add SIN(QA) to SUM_X
-			LDA		SIN_TABLE,X
-			CLC
-			ADC 	SUM_X+0
-			STA  	SUM_X+0
-			LDA		#0
-			ADC 	SUM_X+1
-			STA  	SUM_X+1
-
-			LDA		QA				; add SIN(QA+64) to SUM_Y  (64=90deg)
-			CLC
-			ADC		#64
-			TAX
-			LDA		SIN_TABLE,X
-			CLC
-			ADC 	SUM_Y+0
-			STA  	SUM_Y+0
-			LDA		#0
-			ADC 	SUM_Y+1
-			STA  	SUM_Y+1
-
-			LDA		QA				; add SIN(QA+ENV) to SUM_X
-			CLC
-			ADC 	ENVELOPE+1
-			CLC
-			ADC		#0
-			TAX
-			LDA		SIN_TABLE,X
-			CLC
-			ADC 	SUM_X+0
-			STA  	SUM_X+0
-			LDA		#0
-			ADC 	SUM_X+1
-			STA  	SUM_X+1
-
-			LDA		QA				; add SIN(QA+ENV+64) to SUM_Y
-			CLC
-			ADC 	ENVELOPE+1
-			CLC
-			ADC		#64
-			TAX
-			LDA		SIN_TABLE,X
-			CLC
-			ADC 	SUM_Y+0
-			STA  	SUM_Y+0
-			LDA		#0
-			ADC 	SUM_Y+1
-			STA  	SUM_Y+1
+			+ADDVECT QA, 0
+			+ADDVECT QB, 43
+			+ADDVECT QC, 85
 
 			ASL		SUM_X+0
 			ROL		SUM_X+1
@@ -178,11 +199,7 @@ MAINLOOP:	CLC						; advance envelope
 			ROL		SUM_X+1
 			ASL		SUM_X+0
 			ROL		SUM_X+1
-			ASL		SUM_X+0
-			ROL		SUM_X+1
 
-			ASL		SUM_Y+0
-			ROL		SUM_Y+1
 			ASL		SUM_Y+0
 			ROL		SUM_Y+1
 			ASL		SUM_Y+0
@@ -214,8 +231,8 @@ MAINLOOP:	CLC						; advance envelope
 
 PSET:	
 ;			RAM address = X/2 + Y*(128+32)
-			LDA		PSET_XU8		; X/2
-			CMP		#$80
+			LDA		PSET_XU8	; X/2
+			CLC
 			ROR
 
 			STA		A16+0		; X/2 into A16
@@ -251,7 +268,7 @@ PSET:
 			STA 	A16+0
 			LDA		A16+1
 			ADC 	B16+1
-			STA 	A16+1		; A16 now hold target ram address
+			STA 	A16+1		; A16 now holds target ram address
 
 			LDA 	#$00			; ERASE what was done 256 calls ago
 			STA 	VERA_ADDR_HI
