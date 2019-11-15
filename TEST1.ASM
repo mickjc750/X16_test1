@@ -32,8 +32,8 @@
 ;	After calling GENRAND will have a radom -4 to +4 (not inc 0) value
 	+reserve ~RANDF, 1
 
-;	Envelope
-	+reserve ~ENVELOPE, 2
+;	Envelope prescaler
+	+reserve ~ENVELOPE, 1
 
 ;	Angles
 	+reserve ~QA, 1
@@ -41,6 +41,13 @@
 	+reserve ~QC, 1
 	+reserve ~QD, 1
 
+;	Envelopes
+	+reserve ~QEA, 1
+	+reserve ~QEB, 1
+	+reserve ~QEC, 1
+	+reserve ~QED, 1
+
+;	Frequencies
 	+reserve ~FA, 1
 	+reserve ~FB, 1
 	+reserve ~FC, 1
@@ -83,9 +90,10 @@ SIN_TABLE:
 ;
 
 ; Add a vector to the SUM_X,SUM_Y with some envelope offset
-!macro ADDVECT .QVECT, .ENV_OFFSET {
+!macro ADDVECT .QVECT, .QENV {
 
-			LDX		.QVECT			; add SIN(QVECT) to SUM_X
+			LDA		.QVECT			; add SIN(QVECT) to SUM_X
+			TAX 
 			LDA		SIN_TABLE,X
 			CLC
 			ADC 	SUM_X+0
@@ -108,9 +116,7 @@ SIN_TABLE:
 
 			LDA		.QVECT			; add SIN(QVECT+ENV) to SUM_X
 			CLC
-			ADC 	ENVELOPE+1
-			CLC
-			ADC		#.ENV_OFFSET
+			ADC 	.QENV
 			TAX
 			LDA		SIN_TABLE,X
 			CLC
@@ -122,9 +128,9 @@ SIN_TABLE:
 
 			LDA		.QVECT			; add SIN(QVECT+ENV+64) to SUM_Y
 			CLC
-			ADC 	ENVELOPE+1
+			ADC 	.QENV
 			CLC
-			ADC		#64+.ENV_OFFSET
+			ADC		#64
 			TAX
 			LDA		SIN_TABLE,X
 			CLC
@@ -157,6 +163,15 @@ START:		+VREG	VERA_CTRL, $80	; Reset & default VERA
 			LDA 	#$E1
 			STA 	RAND+0
 
+			LDA		#$00			; init envelope offsets
+			STA 	QEA
+			LDA		#$20
+			STA 	QEB
+			LDA		#$40
+			STA 	QEC
+			LDA		#$60
+			STA 	QED
+
 			LDA		#$69			; Clear screen
 			STA		A16+1
 			LDA 	#$FF
@@ -181,37 +196,52 @@ LOOP1:		LDA		#$00
 			STA		PSET_C
 
 MAINLOOP:	CLC						; advance envelope
-			LDA		#SPEED
-			ADC		ENVELOPE+0
-			STA 	ENVELOPE+0
+			LDA		ENVELOPE
+			ADC		#SPEED
+			STA 	ENVELOPE
 			BCC 	NOTD
 
-			INC 	ENVELOPE+1
-			LDA 	ENVELOPE+1
-			CMP		#128-32			; select new random freqencies 
+			INC 	QEA
+			INC 	QEB
+			INC 	QEC
+			INC 	QED
+
+			LDA 	QEA
+			CMP		#$80				; select new random freqencies 
+			BNE		NOTA
+			JSR		GENRAND
+			LDA 	RANDF
+			STA 	FA
+			JMP		NOTD
+
+NOTA:		LDA 	QEB
+			CMP		#$80				; select new random freqencies 
 			BNE		NOTB
 			JSR		GENRAND
 			LDA 	RANDF
 			STA 	FB
 			JMP		NOTD
 
-NOTB:		LDA 	ENVELOPE+1
-			CMP		#128-64
+NOTB:		LDA 	QEC
+			CMP		#$80
 			BNE		NOTC
 			JSR		GENRAND
 			LDA 	RANDF
 			STA 	FC
 			JMP		NOTD
 
-NOTC:		LDA 	ENVELOPE+1
-			CMP		#128-96
+NOTC:		LDA 	QED
+			CMP		#$80
 			BNE		NOTD
 			JSR		GENRAND
 			LDA 	RANDF
 			STA 	FD
 NOTD:
 
-			INC 	QA 				; increment vectors
+			LDA 	QA
+			CLC
+			ADC 	FA
+			STA 	QA
 			
 			LDA 	QB
 			CLC
@@ -234,10 +264,10 @@ NOTD:
 			STA 	SUM_Y+0
 			STA 	SUM_Y+1
 
-			+ADDVECT QA, 0			; add vectors
-			+ADDVECT QB, 32
-			+ADDVECT QC, 64
-			+ADDVECT QD, 96
+			+ADDVECT QA, QEA			; add vectors
+			+ADDVECT QB, QEB
+			+ADDVECT QC, QEC
+			+ADDVECT QD, QED
 
 ;Value is now 0-2047, to get 0-224 we want /8 - /64
 			CLC					; divide by 8
@@ -287,11 +317,9 @@ NOTD:
 			SBC		SUM_Y+0
 			STA 	PSET_YU8	;Value is now 0-223
 
-
-;			LDA		QA			;REMOVE
-;			STA 	PSET_XU8
+			LDA		ENVELOPE			;REMOVE
+			STA 	PSET_XU8
 			JSR 	PSET
-
 
 			INC 	PSET_C
 			LDA 	PSET_C
