@@ -41,11 +41,17 @@
 	+reserve ~QC, 1
 	+reserve ~QD, 1
 
-;	Envelopes
+;	Envelope Q's
 	+reserve ~QEA, 1
 	+reserve ~QEB, 1
 	+reserve ~QEC, 1
 	+reserve ~QED, 1
+
+;	Envelopes
+	+reserve ~EA, 1
+	+reserve ~EB, 1
+	+reserve ~EC, 1
+	+reserve ~ED, 1
 
 ;	Frequencies
 	+reserve ~FA, 1
@@ -165,11 +171,11 @@ START:		+VREG	VERA_CTRL, $80	; Reset & default VERA
 
 			LDA		#$00			; init envelope offsets
 			STA 	QEA
-			LDA		#$20
-			STA 	QEB
 			LDA		#$40
+			STA 	QEB
+			LDA		#$80
 			STA 	QEC
-			LDA		#$60
+			LDA		#$C0
 			STA 	QED
 
 			LDA		#$69			; Clear screen
@@ -206,8 +212,40 @@ MAINLOOP:	CLC						; advance envelope
 			INC 	QEC
 			INC 	QED
 
+			LDX		QEA
+			LDA		SIN_TABLE,X
+			CLC
+			ROR		
+			CLC
+			ADC		#1
+			STA 	EA 
+
+			LDX		QEB
+			LDA		SIN_TABLE,X
+			CLC
+			ROR		
+			CLC
+			ADC		#1
+			STA 	EB
+			
+			LDX		QEC
+			LDA		SIN_TABLE,X
+			CLC
+			ROR		
+			CLC
+			ADC		#1
+			STA 	EC 
+			
+			LDX		QED
+			LDA		SIN_TABLE,X
+			CLC
+			ROR		
+			CLC
+			ADC		#1
+			STA 	ED 
+
 			LDA 	QEA
-			CMP		#$80				; select new random freqencies 
+			CMP		#$40				; select new random freqencies 
 			BNE		NOTA
 			JSR		GENRAND
 			LDA 	RANDF
@@ -215,7 +253,7 @@ MAINLOOP:	CLC						; advance envelope
 			JMP		NOTD
 
 NOTA:		LDA 	QEB
-			CMP		#$80				; select new random freqencies 
+			CMP		#$40				; select new random freqencies 
 			BNE		NOTB
 			JSR		GENRAND
 			LDA 	RANDF
@@ -223,7 +261,7 @@ NOTA:		LDA 	QEB
 			JMP		NOTD
 
 NOTB:		LDA 	QEC
-			CMP		#$80
+			CMP		#$40
 			BNE		NOTC
 			JSR		GENRAND
 			LDA 	RANDF
@@ -231,7 +269,7 @@ NOTB:		LDA 	QEC
 			JMP		NOTD
 
 NOTC:		LDA 	QED
-			CMP		#$80
+			CMP		#$40
 			BNE		NOTD
 			JSR		GENRAND
 			LDA 	RANDF
@@ -264,10 +302,10 @@ NOTD:
 			STA 	SUM_Y+0
 			STA 	SUM_Y+1
 
-			+ADDVECT QA, QEA			; add vectors
-			+ADDVECT QB, QEB
-			+ADDVECT QC, QEC
-			+ADDVECT QD, QED
+			+ADDVECT QA, EA			; add vectors
+			+ADDVECT QB, EB
+			+ADDVECT QC, EC
+			+ADDVECT QD, ED
 
 ;Value is now 0-2047, to get 0-224 we want /8 - /64
 			CLC					; divide by 8
@@ -317,8 +355,6 @@ NOTD:
 			SBC		SUM_Y+0
 			STA 	PSET_YU8	;Value is now 0-223
 
-			LDA		ENVELOPE			;REMOVE
-			STA 	PSET_XU8
 			JSR 	PSET
 
 			INC 	PSET_C
@@ -448,9 +484,9 @@ GENRAND:	LDA		RAND+0
 			ROR 	RAND+0
 
 			LDA		RAND+0
-			AND		#$07
+			AND		#$0F		;#$07
 			CLC
-			ADC		#$FC
+			ADC		#$F8		;#$FC
 			STA 	RANDF
 			BNE 	GR1
 			INC 	RANDF
